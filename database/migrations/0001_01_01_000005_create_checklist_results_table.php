@@ -32,8 +32,7 @@ return new class extends Migration
             $table->string('floor_name')->nullable();
             $table->string('location_code')->nullable();
             $table->string('location_name')->nullable();
-            $table->string('sales_order_code')->nullable();
-            $table->enum('allotment', ['location', 'floor', 'room', 'asset', 'sales order']);
+            $table->enum('allotment', ['location', 'floor', 'room', 'asset']);
             $table->boolean('is_checked')->default(false);
             $table->enum('period', ['hour', 'day', 'week', 'two weeks', 'month', 'quarter', 'half year', 'year'])->default('month');
             $table->dateTime('started_at');
