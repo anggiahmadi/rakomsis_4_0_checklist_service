@@ -17,12 +17,10 @@ return new class extends Migration
             $table->bigInteger('checklist_id')->unsigned()->index();
             $table->bigInteger('custom_form_id')->unsigned()->index();
             $table->bigInteger('employee_id')->nullable()->unsigned()->index();
-            $table->bigInteger('customer_id')->nullable()->unsigned()->index();
             $table->bigInteger('asset_id')->nullable()->unsigned()->index();
             $table->bigInteger('room_id')->nullable()->unsigned()->index();
             $table->bigInteger('floor_id')->nullable()->unsigned()->index();
             $table->bigInteger('location_id')->nullable()->unsigned()->index();
-            $table->bigInteger('sales_order_id')->nullable()->unsigned()->index();
             $table->string('checklist_name')->nullable();
             $table->string('checklist_desc', 1000)->nullable();
             $table->string('customer_name')->nullable();

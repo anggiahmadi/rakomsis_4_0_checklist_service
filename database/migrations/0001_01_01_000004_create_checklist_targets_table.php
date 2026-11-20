@@ -25,6 +25,7 @@ return new class extends Migration
 
         Schema::create('checklist_target_details', function (Blueprint $table) {
             $table->id();
+            $table->bigInteger('tenant_id')->unsigned()->index();
             $table->bigInteger('checklist_target_id')->unsigned()->index();
             $table->bigInteger('checklist_id')->unsigned()->index();
             $table->bigInteger('location_id')->nullable()->unsigned()->index();
