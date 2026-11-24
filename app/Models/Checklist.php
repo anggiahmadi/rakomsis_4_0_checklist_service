@@ -36,6 +36,6 @@ class Checklist extends Model
 
     public function divisions()
     {
-        return DB::table('checklist_divisions')->where('checklist_id', $this->id)->get();
+        return DB::table('checklist_division')->where('checklist_id', $this->id)->get();
     }
 }
