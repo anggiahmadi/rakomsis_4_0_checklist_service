@@ -29,7 +29,7 @@ class ChecklistTargetRequest extends FormRequest
             'code' => 'required|string|max:255',
             'name' => 'required|string|max:255',
             'started_at' => 'required|date',
-            'ended_at' => 'required|date|gt:started_at',
+            'ended_at' => 'required|date|gte:started_at',
             'checklist_target_details' => 'required|array',
             'checklist_target_details.*.checklist_id' => 'required|integer|exists:checklists,id',
             'checklist_target_details.*.location_id' => 'nullable|integer',
