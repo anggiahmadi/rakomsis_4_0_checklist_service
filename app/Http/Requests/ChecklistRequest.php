@@ -64,7 +64,7 @@ class ChecklistRequest extends FormRequest
             $divisions = (!is_array($this->divisions)) ? json_decode($this->divisions) : json_decode(json_encode($this->divisions));
 
             foreach ($divisions as $division) {
-                DB::table('checklist_divisions')->insert([
+                DB::table('checklist_division')->insert([
                     'checklist_id' => $checklist->id,
                     'division_id' => $division->division_id,
                 ]);
@@ -89,12 +89,12 @@ class ChecklistRequest extends FormRequest
         $checklist->update($this->validated());
 
         if ($this->has('divisions')) {
-            DB::table('checklist_divisions')->where('checklist_id', $checklist->id)->delete();
+            DB::table('checklist_division')->where('checklist_id', $checklist->id)->delete();
 
             $divisions = (!is_array($this->divisions)) ? json_decode($this->divisions) : json_decode(json_encode($this->divisions));
 
             foreach ($divisions as $division) {
-                DB::table('checklist_divisions')->insert([
+                DB::table('checklist_division')->insert([
                     'checklist_id' => $checklist->id,
                     'division_id' => $division->division_id,
                 ]);
