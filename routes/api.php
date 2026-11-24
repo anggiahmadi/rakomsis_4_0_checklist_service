@@ -33,6 +33,8 @@ Route::controller(ChecklistTargetController::class)->group(function () {
     Route::get('checklist_targets/{id}', 'show')->middleware('auth.access');
     Route::get('checklist_targets-get-code', 'getCode')->middleware('auth.access');
     Route::get('checklist_targets-get-by-code', 'getByCode')->middleware('auth.access');
+    Route::get('checklist_targets_count_results', 'getCountTargetResults')->middleware('auth.access');
+    Route::get('checklist_targets_resume_per_period', 'resumePerPeriod')->middleware('auth.access');
     Route::get('datatables/checklist_targets', 'datatables')->middleware('auth.access');
     Route::post('checklist_targets', 'store')->middleware('auth.access');
     Route::put('checklist_targets/{id}', 'update')->middleware('auth.access');

@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('checklist_targets', function (Blueprint $table) {
             $table->id();
             $table->bigInteger('tenant_id')->unsigned()->index();
-            $table->string('code')->index();
-            $table->string('name');
+            $table->string('code')->index(); // Replacement of allotment code from former version
+            $table->string('name'); // Replacement of allotment name from former version
             $table->dateTime('started_at');
             $table->dateTime('ended_at');
             $table->timestamps();
@@ -33,7 +33,7 @@ return new class extends Migration
             $table->bigInteger('room_id')->nullable()->unsigned()->index();
             $table->bigInteger('asset_id')->nullable()->unsigned()->index();
             $table->enum('allotment', ['location', 'floor', 'room', 'asset']);
-            $table->string('allotment_code')->default('no code');
+            $table->string('allotment_code')->nullable();
             $table->string('allotment_name')->nullable();
             $table->string('timezone')->default('UTC');
             $table->timestamps();

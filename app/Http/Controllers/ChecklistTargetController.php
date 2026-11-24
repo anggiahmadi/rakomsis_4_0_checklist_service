@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Traits\ApiResponser;
 use App\Http\Requests\ChecklistTargetRequest;
 use App\Models\ChecklistTarget;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
@@ -135,5 +137,186 @@ class ChecklistTargetController extends Controller
             ->filterColumn('started_at', fn($q, $k) => $q->where('started_at', 'like', "%{$k}%"))
             ->filterColumn('ended_at', fn($q, $k) => $q->where('ended_at', 'like', "%{$k}%"))
             ->toJson();
+    }
+
+    public function getCountTargetResults(Request $request)
+    {
+        $request->validate([
+            'tenant_id' => 'required|integer',
+            'code' => 'required|string',
+            'started_at' => 'required|date',
+            'ended_at' => 'required|date|gte:started_at',
+            'location_ids' => 'required|array',
+            'checklist_ids' => 'nullable|array',
+        ]);
+
+        $targets = DB::table('checklist_target_details as ctd')
+            ->join('checklist_targets as ct', 'ctd.checklist_target_id', 'ct.id')
+            ->where('ctd.tenant_id', $request->tenant_id)
+            ->whereIn('ctd.location_id', $request->location_ids)
+            ->where('ct.code', $request->code)
+            ->where('ct.started_at', '>=', $request->started_at)
+            ->where('ct.ended_at', '<=', $request->ended_at);
+
+        $results = DB::table('checklist_results as cr')
+            ->where('cr.tenant_id', $request->tenant_id)
+            ->whereIn('cr.location_id', $request->location_ids)
+            ->where('cr.started_at', '>=', $request->started_at)
+            ->where('cr.ended_at', '<=', $request->ended_at);
+
+        if ($request->has('checklist_ids')) {
+            $targets = $targets->whereIn('ctd.checklist_id', $request->checklist_ids);
+
+            $results = $results->whereIn('cr.checklist_id', $request->checklist_ids);
+        }
+
+        if ($request->has('allotment_code')) {
+            $targets = $targets->where('ct.allotment_code', $request->allotment_code);
+
+            $results = $results->where('cr.allotment_code', $request->allotment_code);
+        }
+
+        $data['targets'] = $targets->count();
+
+        $data['results'] = $results->count();
+
+        return $this->successResponse($data);
+    }
+
+    public function resumePerPeriod(Request $request)
+    {
+        $request->validate([
+            'tenant_id' => 'required|integer',
+            'code' => 'required|string',
+            'started_at' => 'required|date',
+            'ended_at' => 'required|date|gte:started_at',
+            'total_holidays' => 'required|integer',
+            'location_ids' => 'required|array',
+            'checklist_ids' => 'nullable|array',
+            'allotment_code' => 'nullable|string',
+        ]);
+
+        $startedAt = date('Y-m-d 00:00:00', strtotime($request->started_at));
+        $endedAt = date('Y-m-d 23:59:59', strtotime($request->ended_at));
+
+        // --- Period calculations, done ONCE in PHP (not per row) to keep the query fast ---
+        $periodStart = Carbon::parse($startedAt)->startOfDay();
+        $periodEnd   = Carbon::parse($endedAt)->endOfDay();
+
+        $totalDays     = $periodStart->diffInDays($periodEnd) + 1; // inclusive day count
+        $totalMonths   = ($totalDays < $periodStart->daysInMonth) ? 1 : round($totalDays / $periodStart->daysInMonth); // proportional to the month's length
+        $totalQuarters = ($totalDays < 90) ? 1 : round($totalDays / 90); // approximate quarter length
+        $totalHalfYears = ($totalDays < 182) ? 1 : round($totalDays / 182); // approximate half-year length
+        $totalYears    = ($totalDays < 365) ? 1 : round($totalDays / 365); // approximate year
+
+        $totalMondays = 0;
+        $totalTuesdays = 0;
+        $totalWednesdays = 0;
+        $totalThursdays = 0;
+        $totalFridays = 0;
+        $totalSaturdays = 0;
+        $totalSundays = 0;
+
+        $totalHolidays = 0;
+
+        foreach (CarbonPeriod::create($periodStart, $periodEnd) as $date) {
+            if ($date->isWeekend()) {
+                $totalHolidays++;
+            }
+
+            if ($date->isMonday())    { $totalMondays++; }
+            if ($date->isTuesday())   { $totalTuesdays++; }
+            if ($date->isWednesday()) { $totalWednesdays++; }
+            if ($date->isThursday())  { $totalThursdays++; }
+            if ($date->isFriday())    { $totalFridays++; }
+            if ($date->isSaturday())  { $totalSaturdays++;}
+            if ($date->isSunday())    { $totalSundays++;}
+        }
+
+        $totalWeeks = max([
+            $totalMondays,
+            $totalTuesdays,
+            $totalWednesdays,
+            $totalThursdays,
+            $totalFridays,
+            $totalSaturdays,
+            $totalSundays
+        ]);
+
+        $totalTwoWeeks = ($totalWeeks == 0) ? 0 : ceil($totalWeeks / 2);
+
+        $totalHolidays += $request->total_holidays; // Initialize total holidays from request
+
+        $totalWeekdays = $totalDays - $totalSaturdays - $totalSundays - $totalHolidays;
+
+        // Subquery: target_total_checklist pre-aggregated per period
+        $targetPerPeriod = DB::table('checklists as c')
+            ->join('checklist_target_details as ctd', 'ctd.checklist_id', 'c.id')
+            ->join('checklist_targets as ct', 'ct.id', 'ctd.checklist_target_id')
+            ->where('c.tenant_id', $request->tenant_id)
+            ->where('ct.code', $request->code)
+            ->where('ct.ended_at', '>=', $request->started_at)
+            ->where('ct.started_at', '<=', $request->ended_at)
+            ->whereIn('ctd.location_id', $request->location_ids)
+            ->groupBy('c.period')
+            ->select([
+                'c.period',
+                DB::raw("
+                    COALESCE(SUM(
+                        c.quantity *
+                        CASE c.period
+                            WHEN 'hour'      THEN $totalWeekdays
+                            WHEN 'day'       THEN $totalWeekdays
+                            WHEN 'week'      THEN $totalWeeks
+                            WHEN 'two weeks' THEN $totalTwoWeeks
+                            WHEN 'month'     THEN $totalMonths
+                            WHEN 'quarter'   THEN $totalQuarters
+                            WHEN 'half_year' THEN $totalHalfYears
+                            WHEN 'year'      THEN $totalYears
+                            ELSE 1
+                        END
+                    ), 0) as target_total_checklist
+                "),
+            ]);
+
+        if ($request->has('allotment_code')) {
+            $targetPerPeriod = $targetPerPeriod->where('ctd.allotment_code', $request->allotment_code);
+        }
+
+        if ($request->has('checklist_ids')) {
+            $targetPerPeriod = $targetPerPeriod->whereIn('ctd.checklist_id', $request->checklist_ids);
+        }
+
+        // Main query: join pre-aggregated subquery on period
+        $data = DB::table('checklist_results as cr')
+            ->leftJoinSub($targetPerPeriod, 'tpp', function ($join) {
+                $join->on('tpp.period', '=', 'cr.period');
+            })
+            ->where('cr.tenant_id', $request->tenant_id)
+            ->where('cr.ended_at', '>=', $startedAt)
+            ->where('cr.started_at', '<=', $endedAt)
+            ->whereNull('cr.deleted_at')
+            ->whereIn('cr.location_id', $request->location_ids)
+            ->groupBy('cr.period', 'tpp.target_total_checklist')
+            ->select([
+                'cr.period',
+                DB::raw('SUM(CASE WHEN cr.is_finished = 1 THEN 1 ELSE 0 END) as total_finish'),
+                DB::raw('SUM(CASE WHEN cr.is_checked = 0 THEN 1 ELSE 0 END) as total_not_finish'),
+                DB::raw('SUM(CASE WHEN cr.is_checked = 1 AND cr.need_approval = 1 AND cr.approved_by IS NULL THEN 1 ELSE 0 END) as total_need_approval'),
+                DB::raw('COUNT(cr.id) as total_checklist'),
+                DB::raw('COALESCE(tpp.target_total_checklist, 0) as total_target_checklist'),
+            ]);
+
+        if ($request->has('allotment_code')) {
+            $data = $data->where('cr.allotment_code', $request->allotment_code);
+        }
+
+        if ($request->has('checklist_ids')) {
+            $data = $data->whereIn('cr.checklist_id', $request->checklist_ids);
+        }
+
+        $data = $data->get();
+
+        return $this->successResponse($data);
     }
 }
