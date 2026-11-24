@@ -33,9 +33,4 @@ class Checklist extends Model
     {
         return $this->hasMany(ChecklistTargetDetail::class, 'checklist_id');
     }
-
-    public function divisions()
-    {
-        return DB::table('checklist_division')->where('checklist_id', $this->id)->get();
-    }
 }

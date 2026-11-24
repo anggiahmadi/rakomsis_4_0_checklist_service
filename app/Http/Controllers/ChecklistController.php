@@ -40,7 +40,9 @@ class ChecklistController extends Controller
      */
     public function show(string $id)
     {
-        $checklist = Checklist::with('divisions')->findOrFail($id);
+        $checklist = Checklist::findOrFail($id);
+
+        $checklist->divisions = DB::table('checklist_division')->where('checklist_id', $checklist->id)->get();
 
         return $this->successResponse($checklist);
     }
@@ -82,10 +84,11 @@ class ChecklistController extends Controller
             'code' => 'required'
         ]);
 
-        $data = Checklist::with('divisions')
-            ->where('tenant_id', $request->tenant_id)
+        $data = Checklist::where('tenant_id', $request->tenant_id)
             ->where('code', $request->code)
             ->first();
+
+        $data->divisions = DB::table('checklist_division')->where('checklist_id', $data->id)->get();
 
         return $this->successResponse($data);
     }
