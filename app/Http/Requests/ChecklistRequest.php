@@ -27,10 +27,13 @@ class ChecklistRequest extends FormRequest
     {
         return [
             'tenant_id' => 'required|integer',
+            'form_template_id' => 'required|integer',
             'code' => 'required|string|max:255',
             'name' => 'required|string|max:255',
             'quantity' => 'required|integer',
             'period' => 'required|in:hour,day,week,two weeks,month,two months,quarter,half year,year',
+            'started_time_at' => 'nullable|date_format:H:i:s',
+            'ended_time_at' => 'nullable|date_format:H:i:s',
             'mon' => 'required|boolean',
             'tue' => 'required|boolean',
             'wed' => 'required|boolean',
@@ -41,7 +44,7 @@ class ChecklistRequest extends FormRequest
             'need_approval' => 'required|boolean',
             'has_save_to_draft' => 'required|boolean',
             'has_unfinish_notification' => 'required|boolean',
-            'notification_started_at' => 'nullable|date',
+            'notification_started_at' => 'nullable|date_format:H:i:s',
             'divisions' => 'nullable|array',
             'divisions.*.division_id' => 'required|integer',
         ];
