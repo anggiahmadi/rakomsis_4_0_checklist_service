@@ -50,7 +50,7 @@ class ChecklistTargetController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, string $id)
+    public function update(ChecklistTargetRequest $request, string $id)
     {
         return $this->successResponse($request->update($id), Response::HTTP_CREATED);
     }

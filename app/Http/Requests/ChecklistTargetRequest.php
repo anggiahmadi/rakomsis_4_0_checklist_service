@@ -66,10 +66,12 @@ class ChecklistTargetRequest extends FormRequest
         return $checklistTarget;
     }
 
-    public function update(ChecklistTarget $checklistTarget)
+    public function update(int $id)
     {
         try {
             DB::beginTransaction();
+
+            $checklistTarget = ChecklistTarget::findOrFail($id);
 
             $checklistTarget->update($this->validated());
 
